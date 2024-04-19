@@ -6,6 +6,8 @@ import iam = require("@aws-cdk/aws-iam");
 import codebuild = require("@aws-cdk/aws-codebuild");
 import codecommit = require("@aws-cdk/aws-codecommit");
 import targets = require("@aws-cdk/aws-events-targets");
+import { Cluster } from '@aws-cdk/aws-eks';
+import { KubernetesManifest } from '@aws-cdk/aws-eks/lib/k8s-manifest';
 
 const ProjectName = "cmr-business-serv-customer-payments-poc";
 
@@ -472,41 +474,46 @@ export class ProjectStack extends cdk.Stack {
 
     service.node.addDependency(albIngress);
 
-    eksCluster
-      .addManifest(`${ProjectName}-ingress`, {
-        apiVersion: "extensions/v1beta1",
-        kind: "Ingress",
-        metadata: {
+    eksCluster.addManifest(`${ProjectName}-ingress`, {
+      apiVersion: "networking.k8s.io/v1",
+      kind: "Ingress",
+      metadata: {
           name: `${ProjectName}-ingress`,
           namespace: `${ProjectName}`,
           annotations: {
-            "kubernetes.io/ingress.class": "alb",
-            "alb.ingress.kubernetes.io/scheme": "internet-facing",
-            "alb.ingress.kubernetes.io/target-type": "ip",
-            "alb.ingress.kubernetes.io/healthcheck-path": "/actuator/health",
+              "kubernetes.io/ingress.class": "alb",
+              "alb.ingress.kubernetes.io/scheme": "internet-facing",
+              "alb.ingress.kubernetes.io/target-type": "ip",
+              "alb.ingress.kubernetes.io/healthcheck-path": "/actuator/health",
           },
           labels: {
-            app: `${ProjectName}-ingress`,
+              app: `${ProjectName}-ingress`,
           },
-        },
-        spec: {
+      },
+      spec: {
           rules: [
-            {
-              http: {
-                paths: [
-                  {
-                    path: "/*",
-                    backend: {
-                      serviceName: `${ProjectName}-service`,
-                      servicePort: 80,
-                    },
+              {
+                  http: {
+                      paths: [
+                          {
+                              path: "/*",
+                              pathType: "ImplementationSpecific", // Add pathType
+                              backend: {
+                                  service: {
+                                      name: `${ProjectName}-service`,
+                                      port: {
+                                          number: 80,
+                                      },
+                                  },
+                              },
+                          },
+                      ],
                   },
-                ],
               },
-            },
           ],
-        },
-      })
+      },
+  })
+  
       .node.addDependency(service);
 
     const project = new codebuild.Project(this, `${ProjectName}-build`, {

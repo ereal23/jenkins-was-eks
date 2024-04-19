@@ -408,39 +408,44 @@ class ProjectStack extends cdk.Stack {
         service.node.addDependency(albIngress);
         eksCluster
             .addManifest(`${ProjectName}-ingress`, {
-            apiVersion: "extensions/v1beta1",
-            kind: "Ingress",
-            metadata: {
-                name: `${ProjectName}-ingress`,
-                namespace: `${ProjectName}`,
-                annotations: {
-                    "kubernetes.io/ingress.class": "alb",
-                    "alb.ingress.kubernetes.io/scheme": "internet-facing",
-                    "alb.ingress.kubernetes.io/target-type": "ip",
-                    "alb.ingress.kubernetes.io/healthcheck-path": "/actuator/health",
-                },
-                labels: {
-                    app: `${ProjectName}-ingress`,
-                },
-            },
-            spec: {
-                rules: [
-                    {
-                        http: {
-                            paths: [
-                                {
-                                    path: "/*",
-                                    backend: {
-                                        serviceName: `${ProjectName}-service`,
-                                        servicePort: 80,
-                                    },
-                                },
-                            ],
-                        },
+                apiVersion: "networking.k8s.io/v1",
+                kind: "Ingress",
+                metadata: {
+                    name: `${ProjectName}-ingress`,
+                    namespace: `${ProjectName}`,
+                    annotations: {
+                        "kubernetes.io/ingress.class": "alb",
+                        "alb.ingress.kubernetes.io/scheme": "internet-facing",
+                        "alb.ingress.kubernetes.io/target-type": "ip",
+                        "alb.ingress.kubernetes.io/healthcheck-path": "/actuator/health",
                     },
-                ],
-            },
-        })
+                    labels: {
+                        app: `${ProjectName}-ingress`,
+                    },
+                },
+                spec: {
+                    rules: [
+                        {
+                            http: {
+                                paths: [
+                                    {
+                                        path: "/*",
+                                        pathType: "ImplementationSpecific", // Add pathType
+                                        backend: {
+                                            service: {
+                                                name: `${ProjectName}-service`,
+                                                port: {
+                                                    number: 80,
+                                                },
+                                            },
+                                        },
+                                    },
+                                ],
+                            },
+                        },
+                    ],
+                },
+            }
             .node.addDependency(service);
         const project = new codebuild.Project(this, `${ProjectName}-build`, {
             source: codebuild.Source.codeCommit({ repository }),
